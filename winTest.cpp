@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <windows.h>
+#include <dwmapi.h>
 
 // https://stackoverflow.com/questions/1739259/how-to-use-queryperformancecounter
 double PCFreq = 0.0;
@@ -21,7 +22,7 @@ void setupPCFreq()
     // counts/second * second/milliseconds = counts/millisecond
     // where 1 second per 1000 milliseconds (1/1000)
     PCFreq = double(li.QuadPart) / 1000.0;
-    std::cout << "PCFreq: " << PCFreq << " counts per millisecond" << std::endl;
+    std::cout << "PCFreq: " << PCFreq << " counts per millisecond" << std::endl << std::endl;
 }
 
 // Sets the counts so far into a start counter.
@@ -51,7 +52,7 @@ double GetCounter()
 }
 
 // https://stackoverflow.com/questions/7277366/why-does-enumwindows-return-more-windows-than-i-expected
-BOOL IsAltTabWindow(HWND hwnd)
+BOOL isVisibleOnDesktop(HWND hwnd)
 {
     TITLEBARINFO ti;
     HWND hwndTry, hwndWalk = NULL;
@@ -59,26 +60,37 @@ BOOL IsAltTabWindow(HWND hwnd)
     if (!IsWindowVisible(hwnd))
         return FALSE;
 
-    hwndTry = GetAncestor(hwnd, GA_ROOTOWNER);
-    while (hwndTry != hwndWalk)
-    {
-        hwndWalk = hwndTry;
-        hwndTry = GetLastActivePopup(hwndWalk);
-        if (IsWindowVisible(hwndTry))
-            break;
-    }
-    if (hwndWalk != hwnd)
+    if (IsIconic(hwnd))
         return FALSE;
+
+    // hwndTry = GetAncestor(hwnd, GA_ROOTOWNER);
+    // while (hwndTry != hwndWalk)
+    // {
+    //     hwndWalk = hwndTry;
+    //     hwndTry = GetLastActivePopup(hwndWalk);
+    //     if (IsWindowVisible(hwndTry))
+    //         break;
+    // }
+    // if (hwndWalk != hwnd)
+    //     return FALSE;
+
+    BOOL dwmCompositionEnabled;
+    DwmIsCompositionEnabled(&dwmCompositionEnabled);
+    if (dwmCompositionEnabled)
+    {
+        // https://stackoverflow.com/questions/43927156/enumwindows-returns-closed-windows-store-applications
+        BOOL isCloaked{ FALSE };
+        DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &isCloaked, sizeof(isCloaked));
+        if (isCloaked)
+        {
+            return FALSE;
+        }
+    }
 
     // the following removes some task tray programs and "Program Manager"
     ti.cbSize = sizeof(ti);
     GetTitleBarInfo(hwnd, &ti);
     if (ti.rgstate[0] & STATE_SYSTEM_INVISIBLE)
-        return FALSE;
-
-    // Tool windows should not be displayed either, these do not appear in the
-    // task bar.
-    if (GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW)
         return FALSE;
 
     return TRUE;
@@ -88,11 +100,12 @@ BOOL CALLBACK EnumChildProc(HWND hWnd, long lParam)
 {
     char buff[255];
 
-    if (IsAltTabWindow(hWnd)) {
-        std::cout << "Child hWnd: " << hWnd << std::endl;
+    if (isVisibleOnDesktop(hWnd)) {
+        // std::cout << "-- Child hWnd: " << hWnd << std::endl;
         GetWindowTextA(hWnd, (LPSTR)buff, 254);
-        printf("%s\n", buff);
+        // printf("Window Text: %s\n", buff);
     }
+
     return TRUE;
 }
 
@@ -100,14 +113,17 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, long lParam)
 {
     char buff[255];
 
-    if (IsAltTabWindow(hWnd)) {
+    if (isVisibleOnDesktop(hWnd)) {
         // std::cout << "hWnd: " << hWnd << std::endl;
         GetWindowTextA(hWnd, (LPSTR)buff, 254);
-        // printf("%s\n", buff);
-
-        // Child windows
-        EnumChildWindows(hWnd, (WNDENUMPROC)EnumChildProc, 0);
+        // printf("Window Text: %s\n", buff);
+        // GetClassNameA(hWnd, (LPSTR)buff, 254);
+        // printf("Class Name: %s\n", buff);
     }
+
+    // Child windows
+    EnumChildWindows(hWnd, (WNDENUMPROC)EnumChildProc, 0);
+
     return TRUE;
 }
 
@@ -136,6 +152,7 @@ int main()
     int maxLoop{ 10000 };
     double elapsedTimes{ 0.0 };
     int whileCounter{ 0 };
+
     while (whileCounter < maxLoop)
     {
         StartCounter();
@@ -147,6 +164,7 @@ int main()
         elapsedTimes += elapsedTime;
         // std::cout << "Elapsed Time: " << elapsedTime << std::endl << std::endl;
         whileCounter++;
+
     }
 
     std::cout << "Total Elapsed Time With " << maxLoop << " Loops: " << elapsedTimes << " milliseconds" << std::endl;
