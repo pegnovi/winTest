@@ -18,5 +18,13 @@ https://code.visualstudio.com/docs/cpp/config-mingw
 ### Test
 
 Once winTest.exe is built, run it.
-Average elapsed time per loop of EnumWindows & EnumChildWindows should be around 0.6 - 0.7 milliseconds with 10 windows open.
-If logs are enabled, it increases to around 1.3 - 1.5 milliseconds per loop with 10 windows open.
+
+Results so far:
+
+Total Elapsed Time With 10000 Loops: 16826.9 milliseconds
+Average Elapsed Time Per Loop: 1.68269 milliseconds
+CPU Usage: ~50%-55%
+
+Total Elapsed Time With 50000 Loops: 94546.6 milliseconds
+Average Elapsed Time Per Loop: 1.89093 milliseconds
+CPU Usage: ~50%-55%
