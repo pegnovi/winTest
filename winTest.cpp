@@ -5,6 +5,8 @@
 #include <windows.h>
 #include <dwmapi.h>
 
+bool logStuff = false;
+
 // https://stackoverflow.com/questions/1739259/how-to-use-queryperformancecounter
 double PCFreq = 0.0;
 __int64 CounterStart = 0;
@@ -63,22 +65,14 @@ BOOL isVisibleOnDesktop(HWND hwnd)
     if (IsIconic(hwnd))
         return FALSE;
 
-    // hwndTry = GetAncestor(hwnd, GA_ROOTOWNER);
-    // while (hwndTry != hwndWalk)
-    // {
-    //     hwndWalk = hwndTry;
-    //     hwndTry = GetLastActivePopup(hwndWalk);
-    //     if (IsWindowVisible(hwndTry))
-    //         break;
-    // }
-    // if (hwndWalk != hwnd)
-    //     return FALSE;
-
+    // Check if UWP window is visible.
+    // https://stackoverflow.com/questions/43927156/enumwindows-returns-closed-windows-store-applications
+    // Some windows such as Edge might still be flagged as visible even though it cannot be seen.
+    // This is because the application is in suspended mode and it is being cloaked.
     BOOL dwmCompositionEnabled;
     DwmIsCompositionEnabled(&dwmCompositionEnabled);
     if (dwmCompositionEnabled)
     {
-        // https://stackoverflow.com/questions/43927156/enumwindows-returns-closed-windows-store-applications
         BOOL isCloaked{ FALSE };
         DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &isCloaked, sizeof(isCloaked));
         if (isCloaked)
@@ -98,14 +92,30 @@ BOOL isVisibleOnDesktop(HWND hwnd)
     return TRUE;
 }
 
+
+void printWindow(HWND hWnd)
+{
+    char buff[255];
+    std::cout << "-- hWnd: " << hWnd << std::endl;
+    GetWindowTextA(hWnd, (LPSTR)buff, 254);
+    printf("Window Text: %s\n", buff);
+    GetClassNameA(hWnd, (LPSTR)buff, 254);
+    printf("Class Name: %s\n", buff);
+    LONG exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+    std::cout << "Ex Style: " << exStyle << std::endl;
+    LONG style = GetWindowLong(hWnd, GWL_STYLE);
+    std::cout << "Style: " << style << std::endl;
+}
+
 BOOL CALLBACK EnumChildProc(HWND hWnd, long lParam)
 {
     char buff[255];
 
     if (isVisibleOnDesktop(hWnd)) {
-        // std::cout << "-- Child hWnd: " << hWnd << std::endl;
-        GetWindowTextA(hWnd, (LPSTR)buff, 254);
-        // printf("Window Text: %s\n", buff);
+        if (logStuff) {
+            std::cout << "-- Child ";
+            printWindow(hWnd);
+        }
     }
 
     return TRUE;
@@ -116,11 +126,10 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, long lParam)
     char buff[255];
 
     if (isVisibleOnDesktop(hWnd)) {
-        // std::cout << "hWnd: " << hWnd << std::endl;
-        GetWindowTextA(hWnd, (LPSTR)buff, 254);
-        // printf("Window Text: %s\n", buff);
-        // GetClassNameA(hWnd, (LPSTR)buff, 254);
-        // printf("Class Name: %s\n", buff);
+        if (logStuff)
+        {
+            printWindow(hWnd);
+        }
     }
 
     // Child windows
@@ -169,6 +178,7 @@ int main()
 
     }
 
+    std::cout << std::endl;
     std::cout << "Total Elapsed Time With " << maxLoop << " Loops: " << elapsedTimes << " milliseconds" << std::endl;
     std::cout << "Average Elapsed Time Per Loop: " << elapsedTimes / maxLoop << " milliseconds" << std::endl;
 }
