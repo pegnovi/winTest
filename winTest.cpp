@@ -90,7 +90,9 @@ BOOL isVisibleOnDesktop(HWND hwnd)
     // the following removes some task tray programs and "Program Manager"
     ti.cbSize = sizeof(ti);
     GetTitleBarInfo(hwnd, &ti);
-    if (ti.rgstate[0] & STATE_SYSTEM_INVISIBLE)
+    if (ti.rgstate[0] & STATE_SYSTEM_INVISIBLE ||
+        ti.rgstate[0] & STATE_SYSTEM_UNAVAILABLE ||
+        ti.rgstate[0] & STATE_SYSTEM_OFFSCREEN)
         return FALSE;
 
     return TRUE;
